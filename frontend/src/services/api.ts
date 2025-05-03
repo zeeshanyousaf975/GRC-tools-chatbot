@@ -94,4 +94,33 @@ export const chatApi = {
             };
         }
     },
+    
+    clearChatHistory: async (): Promise<ApiResponse<void>> => {
+        try {
+            logger.info('Clearing chat history');
+            const response = await api.post('/chat/clear');
+            
+            logger.info('Received clear history response', { 
+                success: response.data?.success,
+                message: response.data?.message
+            });
+            
+            if (response.data?.success) {
+                return {
+                    status: 'success'
+                };
+            } else {
+                return {
+                    status: 'error',
+                    error: response.data?.message || 'Failed to clear chat history'
+                };
+            }
+        } catch (error) {
+            logger.error('Error clearing chat history', error);
+            return {
+                status: 'error',
+                error: 'Failed to clear chat history',
+            };
+        }
+    }
 }; 

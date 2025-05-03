@@ -94,4 +94,45 @@ async def get_chat_history(request: Request):
         raise HTTPException(
             status_code=500,
             detail="An error occurred while retrieving chat history"
+        )
+
+class ClearHistoryResponse(BaseModel):
+    success: bool
+    message: str
+
+@router.post("/chat/clear", response_model=ClearHistoryResponse)
+async def clear_chat_history(request: Request):
+    """
+    Clear the chat history and reset the conversation
+    """
+    api_logger.info(
+        "Received clear chat history request",
+        client_ip=request.client.host
+    )
+    
+    try:
+        success = autogen_service.clear_chat_history()
+        
+        if success:
+            api_logger.info("Chat history cleared successfully")
+            return ClearHistoryResponse(
+                success=True,
+                message="Chat history cleared successfully"
+            )
+        else:
+            api_logger.warning("Failed to clear chat history")
+            return ClearHistoryResponse(
+                success=False,
+                message="Failed to clear chat history"
+            )
+    except Exception as e:
+        api_logger.error(
+            "Error clearing chat history",
+            error=str(e),
+            traceback=traceback.format_exc(),
+            client_ip=request.client.host
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while clearing chat history"
         ) 

@@ -82,6 +82,39 @@ export const useChat = () => {
             setLoading(false);
         }
     }, []);
+    
+    const clearHistory = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            logger.info('Clearing chat history');
+            
+            const response = await chatApi.clearChatHistory();
+            
+            if (response.status === 'success') {
+                // Clear the local messages
+                setMessages([]);
+                logger.info('Chat history cleared successfully');
+                
+                // Add a welcome message
+                const welcomeMessage: Message = {
+                    id: Date.now().toString(),
+                    content: "I'm ready to help with GRC topics. What would you like to know?",
+                    sender: 'assistant',
+                    timestamp: new Date().toISOString()
+                };
+                setMessages([welcomeMessage]);
+            } else {
+                logger.error('Failed to clear chat history', { error: response.error });
+                setError(response.error || 'Failed to clear chat history');
+            }
+        } catch (error) {
+            logger.error('Error clearing chat history', error);
+            setError('Failed to clear chat history');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     return {
         messages,
@@ -89,5 +122,6 @@ export const useChat = () => {
         error,
         fetchChatHistory,
         sendMessage,
+        clearHistory
     };
 }; 

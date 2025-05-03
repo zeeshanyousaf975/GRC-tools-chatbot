@@ -7,8 +7,10 @@ import {
   Typography,
   CircularProgress,
   Container,
+  Tooltip,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -27,6 +29,7 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [clearLoading, setClearLoading] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -36,7 +39,7 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  const { data: chatHistory, isLoading: isLoadingHistory } = useQuery({
+  const { data: chatHistory, isLoading: isLoadingHistory, refetch: refetchHistory } = useQuery({
     queryKey: ['chatHistory'],
     queryFn: async () => {
       const response = await chatApi.getChatHistory();
@@ -86,6 +89,23 @@ const Chat = () => {
     },
   });
 
+  const clearChatMutation = useMutation({
+    mutationFn: async () => {
+      return await chatApi.clearChatHistory();
+    },
+    onSuccess: (data) => {
+      if (data.status === 'success') {
+        // Clear the local messages
+        setMessages([{
+          id: Date.now().toString(),
+          content: "I'm ready to help with GRC topics. What would you like to know?",
+          sender: 'assistant',
+          timestamp: new Date().toISOString(),
+        }]);
+      }
+    },
+  });
+
   const handleSendMessage = async () => {
     if (!input.trim()) return;
 
@@ -101,6 +121,14 @@ const Chat = () => {
     await sendMessageMutation.mutateAsync(input);
   };
 
+  const handleClearHistory = async () => {
+    if (window.confirm('Are you sure you want to clear the chat history? This cannot be undone.')) {
+      setClearLoading(true);
+      await clearChatMutation.mutateAsync();
+      setClearLoading(false);
+    }
+  };
+
   const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -110,6 +138,17 @@ const Chat = () => {
 
   return (
     <Container maxWidth="md">
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <Tooltip title="Clear chat history">
+          <IconButton
+            color="error"
+            onClick={handleClearHistory}
+            disabled={sendMessageMutation.isPending || clearLoading || messages.length === 0}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
       <Paper
         elevation={3}
         sx={{
@@ -175,6 +214,14 @@ const Chat = () => {
               </Paper>
             </Box>
           ))}
+          {(sendMessageMutation.isPending || clearLoading) && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+              <CircularProgress size={24} />
+              <Typography variant="body2" sx={{ ml: 1 }}>
+                {clearLoading ? 'Clearing chat history...' : 'Sending message...'}
+              </Typography>
+            </Box>
+          )}
           <div ref={messagesEndRef} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -187,12 +234,12 @@ const Chat = () => {
             onKeyPress={handleKeyPress}
             multiline
             maxRows={4}
-            disabled={sendMessageMutation.isPending}
+            disabled={sendMessageMutation.isPending || clearLoading}
           />
           <IconButton
             color="primary"
             onClick={handleSendMessage}
-            disabled={!input.trim() || sendMessageMutation.isPending}
+            disabled={!input.trim() || sendMessageMutation.isPending || clearLoading}
           >
             {sendMessageMutation.isPending ? (
               <CircularProgress size={24} />
